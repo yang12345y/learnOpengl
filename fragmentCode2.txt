@@ -1,0 +1,46 @@
+#version 330 core
+uniform sampler2D posTexture;
+uniform sampler2D normalTexture;
+uniform sampler2D texNoiseTexture;
+
+in vec2 tCoord;
+out vec4 color;
+float radius = 1.f;
+
+uniform vec3 samples[64];
+uniform mat4 projection;
+
+vec2 sampleNoise = vec2(800/4, 600/4);
+
+void main()
+{
+	// 1, 创建采样向量，基于切线空间（x[-1,1],y[-1,1],z[0,1]），由外部传入
+	// 2. 采样向量转到观察空间，fragPos + 采样向量 * 半径
+	vec3 fragPos = texture(posTexture, tCoord).xyz;
+	vec3 normal = texture(normalTexture, tCoord).rgb;
+	vec3 randomVec = texture(texNoiseTexture, tCoord * sampleNoise).rgb;
+
+	vec3 tangent = normalize(randomVec - normal * dot(normal, randomVec));
+	vec3 bitangent = cross(normal, tangent);
+	mat3 tbn = mat3(tangent, bitangent, normal);
+	float occlusion = 0;
+	for(int i = 0; i < 64; i++)
+	{
+		vec3 sample = tbn * samples[i];
+		vec3 pos = fragPos + sample * radius;
+
+		vec4 pos1 = vec4(pos,1.f);
+		pos1 = projection * pos1;
+		pos.xyz/=pos.w;
+		pos.xyz = pos.xyz * 0.5 + 0.5;
+		float sampleDepth = -texture(posTexture, pos.xyz).w;
+		float rangeCheck = smoothstep(0.0, 1.0, 1.f / abs(fragPos.z - sampleDepth));
+		occlusion += (sample.z >= sampleDepth ? 1.0 : 0.0)*rangeCheck;
+	}
+
+	occlusion = 1.0 - (occlusion / kernelSize);
+	color = vec3(occlusion);
+	// 3. 新的采样位置 转到屏幕空间，得到存储的深度 
+	// 4. 深度比较，得到掩蔽因子
+	// 5. 优化：让采样样点在近处密集分布；创建旋转采样核心纹理，旋转采样半球
+}

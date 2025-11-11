@@ -1,0 +1,16 @@
+#version 330 core
+uniform sampler2D posTexture;
+uniform sampler2D normalTexture;
+uniform sampler2D colorTexture;
+
+in vec2 tCoord;
+out vec4 color;
+void main()
+{
+	vec3 fragPos = texture(posTexture, tCoord).rgb;
+	vec3 normal = texture(normalTexture, tCoord).rgb;
+	vec3 diffuseColor = texture(colorTexture, tCoord).rgb;
+	float specular = texture(colorTexture,tCoord).a;
+
+	color = vec4(fragPos, 1.f);
+}
